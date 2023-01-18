@@ -22,17 +22,33 @@ public class ChoreService
   }
 
 
-  internal List<Chore> Get()
+  internal List<Chore> Get(string userId)
   {
     List<Chore> chores = _repo.Get();
-    return chores;
+    List<Chore> choresFiltered = chores.FindAll(c => c.Completed == false || c.CreatorId == userId);
+    return choresFiltered;
   }
 
-
-  internal string CompleteChore(int id)
+  internal string Complete(int id, string userId)
   {
-    string message = _repo.Complete(id);
-    return message;
+    Chore choreOriginal = _repo.Get(id);
+    if (choreOriginal == null)
+    {
+      throw new Exception("There is no chore here");
+    }
+    if (choreOriginal.CreatorId != userId)
+    {
+      throw new Exception("this is not your chore to complete!");
+    }
+    if (choreOriginal.Completed == true)
+    {
+      throw new Exception("this chore was already completed");
+    }
+    choreOriginal.Completed = true;
+
+    return $"{choreOriginal.Task} has been completed, you have earned {choreOriginal.Earnings} dollars";
+
+
   }
 
 }

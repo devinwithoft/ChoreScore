@@ -12,23 +12,26 @@ namespace ChoreScore.Controllers;
 
 
 [ApiController]
-[Route("api/controller")]
+[Route("api/[controller]")]
 public class ChoreController : ControllerBase
 {
-  private readonly ChoreService _choreService;
 
-  public ChoreController(ChoreService choreService)
+  private readonly ChoreService _choreService;
+  private readonly Auth0Provider _auth0provider;
+
+  public ChoreController(ChoreService choreService, Auth0Provider auth0provider)
   {
-    this._choreService = choreService;
+    _choreService = choreService;
+    _auth0provider = auth0provider;
   }
 
-
   [HttpGet]
-  public ActionResult<List<Chore>> Get()
+  public async Task<ActionResult<List<Chore>>> Get()
   {
     try
     {
-      List<Chore> chores = _choreService.Get();
+      Account userInfo = await _auth0provider.GetUserInfoAsync<Account>(HttpContext);
+      List<Chore> chores = _choreService.Get(userInfo?.Id);
       return Ok(chores);
     }
     catch (Exception e)
@@ -37,13 +40,19 @@ public class ChoreController : ControllerBase
     }
   }
 
+
   [HttpPost]
-  public ActionResult<Chore> Create([FromBody] Chore choreData)
+  [Authorize]
+  public async Task<ActionResult<Chore>> Create([FromBody] Chore choreData)
   {
     try
     {
+      Account userInfo = await _auth0provider.GetUserInfoAsync<Account>(HttpContext);
+      choreData.CreatorId = userInfo.Id;
       Chore chore = _choreService.Create(choreData);
+      chore.Creator = userInfo;
       return Ok(chore);
+
     }
     catch (Exception e)
     {
@@ -51,12 +60,14 @@ public class ChoreController : ControllerBase
     }
   }
 
-  [HttpDelete("{id}")]
-  public ActionResult<string> Remove(int id)
+  [HttpPut("{id}")]
+  [Authorize]
+  public async Task<ActionResult<string>> Complete(int id)
   {
     try
     {
-      string message = _choreService.CompleteChore(id);
+      Account userInfo = await _auth0provider.GetUserInfoAsync<Account>(HttpContext);
+      string message = _choreService.Complete(id, userInfo.Id);
       return Ok(message);
     }
     catch (Exception e)
@@ -64,6 +75,26 @@ public class ChoreController : ControllerBase
       return BadRequest(e.Message);
     }
   }
+
+
+
+
+
+
+
+  // [HttpDelete("{id}")]
+  // public ActionResult<string> Remove(int id)
+  // {
+  //   try
+  //   {
+  //     string message = _choreService.CompleteChore(id);
+  //     return Ok(message);
+  //   }
+  //   catch (Exception e)
+  //   {
+  //     return BadRequest(e.Message);
+  //   }
+  // }
 
 
 

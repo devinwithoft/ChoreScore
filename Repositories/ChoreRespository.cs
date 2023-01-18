@@ -9,42 +9,102 @@ namespace ChoreScore.Repositories;
 
 public class ChoreRespository
 {
+  private readonly IDbConnection _db;
 
-  private List<Chore> choreDb;
-
-  public ChoreRespository()
+  public ChoreRespository(IDbConnection db)
   {
-    this.choreDb = new List<Chore>(){
-        new Chore(1, "Clean the dishes", 5, false),
-        new Chore(2, "Walk the dog", 10, false),
-        new Chore(3, "Take out the garbage", 2, false),
-        new Chore(4, "Mow the lawn", 15, false),
-        new Chore(5, "Water the plants", 3, false)
-      };
+    _db = db;
+  }
+
+  internal List<Chore> Get()
+  {
+    string sql = @"
+    SELECT
+    ch.*,
+    ac.*
+    FROM chores ch
+    JOIN accounts ac ON ac.id = ch.creatorId ;
+    ";
+    List<Chore> chores = _db.Query<Chore, Account, Chore>(sql, (chore, account) =>
+    {
+      chore.Creator = account;
+      return chore;
+    }).ToList();
+    return chores;
+  }
+
+
+  internal Chore Get(int id)
+  {
+    string sql = @"
+  SELECT
+  ch.*,
+  ac.*
+  FROM chores ch
+  JOIN accounts ac ON ac.id = ch.creatorId
+  WHERE ch.id = @id;
+  ";
+    return _db.Query<Chore, Account, Chore>(sql, (chore, account) =>
+    {
+      chore.Creator = account;
+      return chore;
+    }, new { id }).FirstOrDefault();
+
   }
 
   internal Chore Create(Chore choreData)
   {
-    choreData.Id = choreDb[choreDb.Count - 1].Id + 2;
-    choreDb.Add(choreData);
+    string sql = @"
+    INSERT INTO chores
+    (task, earnings, creatorId)
+    VALUES
+    (@task, @earnings, @creatorId);
+    SELECT LAST_INSERT_ID();
+    ";
+    int id = _db.ExecuteScalar<int>(sql, choreData);
+    choreData.Id = id;
     return choreData;
   }
 
 
-  internal List<Chore> Get()
+  internal bool Update(Chore choreOriginal)
   {
-    return choreDb;
+    string sql = @"
+  UPDATE chores
+  SET
+  task = @task,
+  earnings = @earnings,
+  completed = @completed
+  WHERE id == @id;
+  ";
+    int rows = _db.Execute(sql, choreOriginal);
+    return rows > 0;
   }
 
 
-  internal string Complete(int id)
-  {
-    Chore choreToRemove = choreDb.Find(c => c.Id == id);
-    if (!choreToRemove.Completed)
-    {
-      choreToRemove.Completed = !choreToRemove.Completed;
-      return $"{choreToRemove.Task} has been completed, you have earned ${choreToRemove.Earnings} for completing it";
-    }
-    return "This chore has already been completed";
-  }
+
+
+
+
+
+
+
+
+
+
+
+
+
 }
+
+
+
+
+
+
+
+
+
+
+
+
